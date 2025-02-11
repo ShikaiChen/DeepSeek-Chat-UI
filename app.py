@@ -15,6 +15,7 @@ import hashlib
 import io
 import textract 
 import re
+import requests
 
 # 加载环境变量
 load_dotenv()
@@ -67,6 +68,29 @@ CREATE TABLE IF NOT EXISTS blacklist (
 )
 ''')
 conn.commit()
+
+def web_search(query: str, api_key: str) -> str:
+    headers = {
+        'X-API-KEY': search_key,
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "q": query,
+        "gl": "cn",
+        "hl": "zh-cn",
+        "num": 10  # 获取前5条结果
+    }
+    response = requests.post('https://google.serper.dev/search', 
+                           headers=headers,
+                           json=payload)
+    results = response.json()
+    
+    # 提取核心内容
+    search_context = "\n".join([
+        f"来源：{item['link']}\n内容：{item['snippet']}" 
+        for item in results.get('organic', [])
+    ])
+    return f"[网络搜索结果]\n{search_context}\n"
 
 def save_uploaded_files(uploaded_files) -> List[Dict]:
     """保存上传的文件到临时目录并返回文件信息"""
@@ -342,6 +366,17 @@ def handle_user_input():
     if user_input := st.chat_input("请问我任何事!"):
         user_content.append(user_input)
 
+        if st.session_state.get('enable_search', False):
+            try:
+                if not search_key:
+                    raise ValueError("未配置搜索API密钥")
+                search_results = web_search(user_input, search_key)
+                user_content.insert(0, search_results)  # 将搜索结果放在最前面
+            except Exception as e:
+                st.error(f"搜索失败: {str(e)}")
+
+        user_content.append(search_results) 
+
         # 如果有上传文件则处理
         if st.session_state.uploaded_files:
             file_content = format_file_contents(st.session_state.uploaded_files)
@@ -459,6 +494,12 @@ def main_interface():
         
         if st.button("⚙️ - 设置"):
             st.session_state.show_admin = not st.session_state.get('show_admin', False)
+
+        st.session_state.enable_search = st.checkbox(
+            "🔍 启用联网搜索",
+            value=st.session_state.get('enable_search', False),
+            help="启用后将从互联网获取实时信息"
+        )
 
         if st.session_state.get('valid_key'):
             # 获取用户名
@@ -578,9 +619,10 @@ def main():
 if __name__ == "__main__":
 
     dirs = 'uploads/'
-    admin_user = "admin"
-    admin_pass = "admin"
-    api_key = "your key."
+    admin_user = os.getenv("ADMIN_USERNAME") 
+    admin_pass = os.getenv("ADMIN_PASSWORD") 
+    api_key = os.getenv("CHAT_API_KEY") 
+    search_key = os.getenv("SEARCH_API_KEY") 
     
     client = OpenAI(
         api_key=api_key,
@@ -592,7 +634,7 @@ if __name__ == "__main__":
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = [
-            {"role": "system", "content": "You are a helpful assistant."}
+            {"role": "system", "content": "你是一个AI助手，请回答用户提出的问题。同时，如果用户提供了搜索结果，请在回答中添加相应的引用。"}
         ]
         st.session_state.valid_key = False
     main()

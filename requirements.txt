@@ -6,3 +6,4 @@ textract>=1.6.5
 python-magic>=0.4.27
 python-dateutil>=2.8.2
 pandas>=2.2.3
+requests>=2.31.0

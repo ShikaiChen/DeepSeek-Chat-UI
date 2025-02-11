@@ -3,7 +3,7 @@
 [![Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://your-app-url.example.com)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-基于Streamlit构建的智能聊天助手，集成深度思考模型与多用户管理系统，支持文件分析、会话管理和API密钥控制。
+基于Streamlit构建的智能聊天助手，集成深度思考模型与多用户管理系统，支持文件分析、会话管理和API密钥控制，支持联网搜索功能。
 本实现主要调用阿里云的deepseek服务，因此需要部署者提前申请好阿里云百炼的api key，格式为sk-xxxx。
 <img src="public/ui-2.png" width="700" />
 
@@ -19,6 +19,7 @@
   - 支持文件上传分析（TXT/DOC/DOCX/PDF）
   - 上下文感知对话，会在单个session内保留上下文记忆
   - 双阶段响应机制（思考过程可视化）
+  - 支持联网功能，在侧边栏中可以勾选是否生效
   <img src="public/ui.jpg" width="700" />
 
 - **API密钥管理**
@@ -46,11 +47,20 @@ pip install -r requirements.txt
 
 ## 🖥️ 使用说明
 
-1. 修改app.py中的变量，包括：
+1. 修改app.py中的变量，可以通过app.py中修改，也可以直接新建`.env`文件，变量包括：
 - dirs, 上传路径，以路径分隔符结尾。
 - admin_user，初始的管理员账户
 - admin_pass，初始的管理员密码
-- api_key，云服务的key，需要在百炼申请。
+- api_key，云服务的key，需要在[百炼](https://bailian.console.aliyun.com/?spm=5176.28197581.0.0.7dde29a4lSLESr#/model-market/detail/deepseek-r1)申请。
+- search_key, 搜索引擎的key，[serper](https://serper.dev/)可申请。
+
+`.env`文件示例如下：
+```bash
+SEARCH_API_KEY=xxx-serper-key
+CHAT_API_KEY=sk-xxx
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin
+```
 
 2. 启动应用：
 ```bash
