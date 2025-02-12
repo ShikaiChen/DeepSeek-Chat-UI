@@ -106,7 +106,7 @@ def save_uploaded_files(uploaded_files) -> List[Dict]:
 
         # 读取文件内容
         try:
-            if file.name.endswith(('.doc', '.docx', 'pdf')):
+            if file.name.endswith(('.doc', '.docx', 'pdf', 'jpg', 'png')):
                 # 使用 textract 解析二进制文件流
                 file_path = os.path.join(dirs, file.name)
                 # 将文件保存到本地文件系统
@@ -348,7 +348,7 @@ def handle_user_input():
     # 文件上传组件
     uploaded_files = st.file_uploader(
         "上传文本文件（支持多个）",
-        type=["txt", "docx", "doc", 'pdf'],
+        type=["txt", "docx", "doc", 'pdf', 'jpg', 'png'],
         accept_multiple_files=True,
         key="file_uploader"
     )
@@ -374,8 +374,6 @@ def handle_user_input():
                 user_content.insert(0, search_results)  # 将搜索结果放在最前面
             except Exception as e:
                 st.error(f"搜索失败: {str(e)}")
-
-        user_content.append(search_results) 
 
         # 如果有上传文件则处理
         if st.session_state.uploaded_files:
