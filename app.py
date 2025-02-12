@@ -10,7 +10,7 @@ from db_utils import conn, c
 from auth_utils import login_form, register_form
 from admin_utils import admin_panel, setup_admin
 from file_utils import save_uploaded_files, format_file_contents
-from api_utils import web_search, get_active_api_config, process_thinking_phase, process_response_phase
+from api_utils import web_search, get_active_api_config, process_stream
 from helper_utils import save_session, load_session, display_chat_history
 
 def handle_user_input():
@@ -71,10 +71,9 @@ def handle_user_input():
                 messages=st.session_state.messages,
                 stream=True
             )
-            thinking_content = process_thinking_phase(stream, st.session_state.used_key)
-            response_content = process_response_phase(stream, st.session_state.used_key)
+            total_content = process_stream(stream, st.session_state.used_key)
             st.session_state.messages.append(
-                {"role": "assistant", "content": thinking_content + response_content}
+                {"role": "assistant", "content": total_content}
             )
 
         save_session()

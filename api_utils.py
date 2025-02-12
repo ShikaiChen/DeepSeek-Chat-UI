@@ -44,49 +44,48 @@ def get_active_api_config():
     result = c.fetchone()
     return result or ("https://api.deepseek.com/v1", "", "deepseek-r1")
 
-def process_thinking_phase(stream, used_key):
-    """处理模型思考阶段"""
+def process_stream(stream, used_key):
+    """合并处理思考阶段和响应阶段"""
     thinking_content = ""
+    response_content = ""
+    
+    # 在状态块外部预先创建响应占位符
+    response_placeholder = st.empty()
+    
     with st.status("思考中...", expanded=True) as status:
-        placeholder = st.empty()
+        thinking_placeholder = st.empty()
+        thinking_phase = True  # 思考阶段标记
+        
         for chunk in stream:
-            content = chunk.choices[0].delta.reasoning_content or ""
-            thinking_content += content
+            # 解析数据块
+            reasoning = chunk.choices[0].delta.reasoning_content or ""
+            content = chunk.choices[0].delta.content or ""
+            
+            # 处理思考阶段
+            if thinking_phase:
+                thinking_content += reasoning
+                thinking_placeholder.markdown(thinking_content)
+                
+                # 检测思考阶段结束
+                if not reasoning:
+                    status.update(label="思考完成", state="complete", expanded=False)
+                    thinking_phase = False
+                    response_placeholder.markdown("▌")  # 初始化响应光标
 
-            # 计算并更新token使用
-            adjusted_length = sum(2 if '\u4e00' <= c <= '\u9fff' else 1 for c in content)
-            c.execute("""
-                UPDATE api_keys 
-                SET used_tokens = used_tokens + ? 
-                WHERE key = ?
-            """, (adjusted_length, used_key))
+            # 处理响应阶段（无论是否在思考阶段都收集内容）
+            response_content += content
+            if not thinking_phase:
+                response_placeholder.markdown(response_content + "▌")
+
+            # 更新Token使用
+            adjusted_length = sum(2 if '\u4e00' <= c <= '\u9fff' else 1 for c in (reasoning + content))
+            c.execute(
+                "UPDATE api_keys SET used_tokens = used_tokens + ? WHERE key = ?",
+                (adjusted_length, used_key)
+            )
             conn.commit()
 
-            placeholder.markdown(f"```\n{thinking_content}\n```")
-
-            if not content:  # 结束标志
-                status.update(label="思考完成", state="complete", expanded=False)
-
-    return f"<THINKING>\n{thinking_content}\n</THINKING>\n"
-
-def process_response_phase(stream, used_key):
-    """处理模型响应阶段"""
-    response_content = ""
-    placeholder = st.empty()
-    for chunk in stream:
-        content = chunk.choices[0].delta.content or ""
-        response_content += content
-
-        # 计算并更新token使用
-        adjusted_length = sum(2 if '\u4e00' <= c <= '\u9fff' else 1 for c in content)
-        c.execute("""
-            UPDATE api_keys 
-            SET used_tokens = used_tokens + ? 
-            WHERE key = ?
-        """, (adjusted_length, used_key))
-        conn.commit()
-
-        placeholder.markdown(response_content + "▌")
-
-    placeholder.markdown(response_content)
-    return response_content
+        # 流结束后移除光标
+        response_placeholder.markdown(response_content)
+    
+    return f"<think>{thinking_content}</think>{response_content}"
