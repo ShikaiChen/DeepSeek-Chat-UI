@@ -117,16 +117,71 @@ def main_interface():
             ''', (username,)).fetchall()
 
             for hist in histories:
-                col1, col2 = st.columns([4, 1])
+                session_id = hist[0]
+                current_name = hist[1]
+                
+                # 使用三列布局：名称/输入框（4）、编辑/保存（1）、删除（1）
+                col1, col2, col3 = st.columns([4, 1, 1])
+                
                 with col1:
-                    if st.button(f"🗨️ {hist[1]}", key=f"load_{hist[0]}"):
-                        st.session_state.show_admin = False
-                        load_session(hist[0])
+                    if st.session_state.get('editing_session') == session_id:
+                        # 编辑模式：显示输入框
+                        new_name = st.text_input(
+                            "修改名称",
+                            value=current_name,
+                            key=f"edit_{session_id}",
+                            label_visibility="collapsed"  # 隐藏标签
+                        )
+                    else:
+                        # 正常模式：显示会话加载按钮
+                        if st.button(
+                            f"🗨️ {current_name}",
+                            key=f"load_{session_id}",
+                            help="点击加载会话"
+                        ):
+                            st.session_state.show_admin = False
+                            load_session(session_id)
+                
                 with col2:
-                    if st.button("×", key=f"del_{hist[0]}"):
-                        c.execute('DELETE FROM history WHERE session_id = ?', (hist[0],))
+                    if st.session_state.get('editing_session') == session_id:
+                        # 编辑模式：显示保存按钮
+                        if st.button(
+                            "💾",
+                            key=f"save_{session_id}",
+                            help="保存修改",
+                            type="primary"
+                        ):
+                            if new_name.strip():
+                                c.execute(
+                                    'UPDATE history SET session_name = ? WHERE session_id = ?',
+                                    (new_name.strip(), session_id)
+                                )
+                                conn.commit()
+                            del st.session_state.editing_session
+                            st.rerun()
+                    else:
+                        # 正常模式：显示编辑按钮
+                        if st.button(
+                            "✏️",
+                            key=f"edit_{session_id}",
+                            help="修改名称"
+                        ):
+                            st.session_state.editing_session = session_id
+                            st.rerun()
+                
+                with col3:
+                    # 删除按钮
+                    if st.button(
+                        "×",
+                        key=f"del_{session_id}",
+                        help="删除会话"
+                    ):
+                        c.execute('DELETE FROM history WHERE session_id = ?', (session_id,))
                         conn.commit()
+                        if st.session_state.get('editing_session') == session_id:
+                            del st.session_state.editing_session
                         st.rerun()
+
 
     if st.session_state.get('show_admin'):
         admin_panel()
