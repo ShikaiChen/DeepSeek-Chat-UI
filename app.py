@@ -269,7 +269,7 @@ def admin_panel():
                 st.write(f"Tokens Used: {key[3]}")
                 st.write(f"Tokens Total: {key[4]}")
                 if st.button(f"Revoke Key {key[0]}"):
-                    c.execute('DELETE FROM api_keys WHERE key = ?', (config[1],))
+                    c.execute('DELETE FROM api_keys WHERE key = ?', (key[1],))
                     conn.commit()
                     st.rerun()
         return
