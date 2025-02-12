@@ -23,7 +23,7 @@ def delete_user(user_id):
     c.execute('DELETE FROM api_keys WHERE username = (SELECT username FROM users WHERE id = ?)', (user_id,))
     conn.commit()
 
-def setup_admin(admin_user, admin_pass):
+def setup_admin(admin_user, admin_pass, key):
     c.execute('SELECT 1 FROM users WHERE username = ?', (admin_user,))
     if not c.fetchone():
         c.execute('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
@@ -33,7 +33,7 @@ def setup_admin(admin_user, admin_pass):
             VALUES (?, ?, ?, ?, 1)
         ''', ("default", 
              "https://dashscope.aliyuncs.com/compatible-mode/v1",
-             st.secrets.CHAT_API_KEY,
+             key,
              "deepseek-r1"))
         conn.commit()
 

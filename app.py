@@ -136,21 +136,21 @@ def main_interface():
         handle_user_input()
 
 def main():
-    setup_admin(admin_user, admin_pass)
+    setup_admin(admin_user, admin_pass, api_key)
 
     if 'current_session_id' not in st.session_state:
         st.session_state.current_session_id = str(uuid.uuid4())
 
     if not st.session_state.get('valid_key'):
-        api_key = st.chat_input("使用前，请先输入User Key")
-        if api_key:
-            if not re.fullmatch(r'^[A-Za-z0-9]+$', api_key):
+        user_key = st.chat_input("使用前，请先输入User Key")
+        if user_key:
+            if not re.fullmatch(r'^[A-Za-z0-9]+$', user_key):
                 st.error("无效的 User Key")
             else:
-                c.execute('SELECT username FROM api_keys WHERE key = ? AND is_active = 1', (api_key,))
+                c.execute('SELECT username FROM api_keys WHERE key = ? AND is_active = 1', (user_key,))
                 if result := c.fetchone():
                     st.session_state.valid_key = True
-                    st.session_state.used_key = api_key
+                    st.session_state.used_key = user_key
                     st.session_state.username = result[0]
                     st.rerun()
                 else:
