@@ -67,6 +67,19 @@ CREATE TABLE IF NOT EXISTS blacklist (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 ''')
+
+c.execute('''
+CREATE TABLE IF NOT EXISTS api_configurations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_name TEXT UNIQUE,
+    base_url TEXT,
+    api_key TEXT,
+    is_active BOOLEAN DEFAULT 0,
+    model_name TEXT DEFAULT 'deepseek-r1',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
 conn.commit()
 
 def web_search(query: str, api_key: str) -> str:
@@ -256,14 +269,14 @@ def admin_panel():
                 st.write(f"Tokens Used: {key[3]}")
                 st.write(f"Tokens Total: {key[4]}")
                 if st.button(f"Revoke Key {key[0]}"):
-                    c.execute('UPDATE api_keys SET is_active = 0 WHERE id = ?', (key[0],))
+                    c.execute('DELETE FROM api_keys WHERE key = ?', (config[1],))
                     conn.commit()
                     st.rerun()
         return
 
     st.header("Admin Panel")
     
-    tab1, tab2, tab3 = st.tabs(["API Keys", "Users", "Blacklist"])
+    tab1, tab2, tab3, tab4 = st.tabs(["API Keys", "API Configs", "Users", "Blacklist"])  # 新增API Configs选项卡
     
     with tab1:
         st.subheader("API Key Management")
@@ -288,7 +301,58 @@ def admin_panel():
                     conn.commit()
                     st.rerun()
     
-    with tab2:
+    with tab2:  # 新增API配置管理
+        st.subheader("API配置管理")
+
+        # 添加新配置表单
+        with st.form("添加API配置"):
+            config_name = st.text_input("配置名称")
+            base_url = st.text_input("Base URL", value="https://dashscope.aliyuncs.com/compatible-mode/v1")
+            api_key = st.text_input("API Key", type="password")
+            model_name = st.text_input("模型名称", value="deepseek-r1")
+            if st.form_submit_button("添加配置"):
+                try:
+                    c.execute('''
+                        INSERT INTO api_configurations 
+                        (config_name, base_url, api_key, model_name)
+                        VALUES (?, ?, ?, ?)
+                    ''', (config_name, base_url, api_key, model_name))
+                    conn.commit()
+                    st.success("配置添加成功")
+                except sqlite3.IntegrityError:
+                    st.error("配置名称已存在")
+
+        # 显示现有配置
+        st.subheader("现有配置")
+        configs = c.execute('''
+            SELECT id, config_name, base_url, model_name, is_active 
+            FROM api_configurations
+        ''').fetchall()
+
+        for config in configs:
+            with st.expander(f"{config[1]} ({'激活' if config[4] else '未激活'})"):
+                st.code(f'''
+                    Base URL: {config[2]}
+                    模型名称: {config[3]}
+                ''')
+
+                # 激活/停用切换
+                if st.button(f"{'停用' if config[4] else '激活'}", key=f"toggle_{config[0]}"):
+                    c.execute('''
+                        UPDATE api_configurations 
+                        SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END
+                        WHERE id = ?
+                    ''', (config[0],))
+                    conn.commit()
+                    st.rerun()
+
+                # 删除配置
+                if st.button("删除", key=f"delconf_{config[0]}"):
+                    c.execute('DELETE FROM api_configurations WHERE id = ?', (config[0],))
+                    conn.commit()
+                    st.rerun()
+
+    with tab3:
         st.subheader("User Management")
         register_form()
         users = c.execute('SELECT id, username, is_admin FROM users').fetchall()
@@ -300,7 +364,7 @@ def admin_panel():
             if cols[2].button(f"Delete {user[1]}", key=f"del_{user[0]}"):
                 delete_user(user[0])
     
-    with tab3:
+    with tab4:
         st.subheader("Blacklist Management")
         with st.form("Add to Blacklist"):
             username = st.text_input("Username")
@@ -345,6 +409,14 @@ def delete_user(username):
 
 # 修改后的主功能模块
 def handle_user_input():
+    # 选择有效接口、key
+    base_url, api_key, model_name = get_active_api_config()
+    
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+    )
+
     # 文件上传组件
     uploaded_files = st.file_uploader(
         "上传文本文件（支持多个）",
@@ -409,7 +481,7 @@ def handle_user_input():
 
         with st.chat_message("assistant"):
             stream = client.chat.completions.create(
-                model="deepseek-r1",
+                model=model_name,
                 messages=st.session_state.messages,
                 stream=True
             )
@@ -424,6 +496,19 @@ def handle_user_input():
         # 自动保存会话
         save_session()
     
+def get_active_api_config():
+    """获取当前激活的API配置"""
+    c.execute('''
+        SELECT base_url, api_key, model_name 
+        FROM api_configurations 
+        WHERE is_active = 1 
+        LIMIT 1
+    ''')
+    result = c.fetchone() 
+    if result:
+        return result
+    else:
+        return (base_url, api_key, model_name)
 
 def process_thinking_phase(stream):
     """Process the thinking phase of the chat model"""
@@ -547,6 +632,8 @@ def setup_admin():
     if not c.fetchone():
         c.execute('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
                  (admin_user, hash_password(admin_pass)))
+        c.execute('INSERT INTO api_configurations (config_name, base_url, api_key, model_name, is_active) VALUES (?, ?, ?, ?, 1)',
+                ("example", base_url, api_key, model_name))
         conn.commit()
 
 # 在main_interface()函数之前补充这些方法
@@ -597,10 +684,10 @@ def main():
 
     # API密钥验证逻辑
     if not st.session_state.get('valid_key'):
-        api_key = st.chat_input("使用前，请先输入api-key，由网站管理员颁发。")
+        api_key = st.chat_input("使用前，请先输入User Key，由网站管理员颁发。")
         if api_key:
             if not re.fullmatch(r'^[A-Za-z0-9]+$', api_key):
-                st.error("无效的 API key, 请联系Juntao - jjt627464892。")
+                st.error("无效的 User Key, 请联系Juntao - jjt627464892。")
             else:
                 c.execute('SELECT username FROM api_keys WHERE key = ? AND is_active = 1', (api_key,))
                 if result := c.fetchone():
@@ -609,7 +696,7 @@ def main():
                     st.session_state.username = result[0]
                     st.rerun()
                 else:
-                    st.error("无效的 API key, 请联系Juntao - jjt627464892。")
+                    st.error("无效的 User Key, 请联系Juntao - jjt627464892。")
         
     main_interface()
     
@@ -621,11 +708,9 @@ if __name__ == "__main__":
     admin_pass = os.getenv("ADMIN_PASSWORD") 
     api_key = os.getenv("CHAT_API_KEY") 
     search_key = os.getenv("SEARCH_API_KEY") 
-    
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    )
+    # 初始url，以阿里云服务为例
+    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1" 
+    model_name = "deepseek-r1"
 
     if not os.path.exists(dirs):
         os.makedirs(dirs)
