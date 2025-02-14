@@ -206,11 +206,11 @@ def main():
             else:
                 with get_cursor() as c:
                     c.execute('SELECT username FROM api_keys WHERE key = ? AND is_active = 1', (user_key,))
-                if result := c.fetchone():
-                    st.session_state.valid_key = True
-                    st.session_state.used_key = user_key
-                    st.session_state.username = result[0]
-                    st.rerun()
+                    if result := c.fetchone():
+                        st.session_state.valid_key = True
+                        st.session_state.used_key = user_key
+                        st.session_state.username = result[0]
+                        st.rerun()
                 else:
                     st.error("无效的 User Key")
 
