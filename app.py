@@ -211,8 +211,8 @@ def main():
                         st.session_state.used_key = user_key
                         st.session_state.username = result[0]
                         st.rerun()
-                else:
-                    st.error("无效的 User Key")
+                    else:
+                        st.error("无效的 User Key")
 
     main_interface()
 
