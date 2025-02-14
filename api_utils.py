@@ -61,14 +61,14 @@ def process_stream(stream, used_key):
             # 解析数据块
             reasoning = chunk.choices[0].delta.reasoning_content or ""
             content = chunk.choices[0].delta.content or ""
-            
+            role = chunk.choices[0].delta.role or ""
             # 处理思考阶段
             if thinking_phase:
                 thinking_content += reasoning
                 thinking_placeholder.markdown(thinking_content)
                 
                 # 检测思考阶段结束
-                if not reasoning:
+                if not (reasoning or role):
                     status.update(label="思考完成", state="complete", expanded=False)
                     thinking_phase = False
                     response_placeholder.markdown("▌")  # 初始化响应光标
