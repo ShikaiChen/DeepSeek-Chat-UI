@@ -36,13 +36,15 @@ def save_session():
                 # 清理旧记录
                 c.execute("""
                     DELETE FROM history 
-                    WHERE id NOT IN (
-                        SELECT id FROM history 
-                        WHERE username = ? 
+                    WHERE username = ?
+                    AND id NOT IN (
+                        SELECT id 
+                        FROM history 
+                        WHERE username = ?
                         ORDER BY updated_at DESC 
                         LIMIT 10
                     )
-                """, (username,))
+                """, (username, username))
 
         except Exception as e:
             st.error(f"保存会话失败: {str(e)}")
