@@ -6,7 +6,7 @@ import uuid
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
-from db_utils import conn, c
+from db_utils import conn, c, get_cursor
 from auth_utils import login_form, register_form
 from admin_utils import admin_panel, setup_admin
 from file_utils import save_uploaded_files, format_file_contents
@@ -50,14 +50,16 @@ def handle_user_input():
             st.error("请提供有效key，可联系管理员")
             return
 
-        keys = c.execute('SELECT id, key, username, used_tokens, total_tokens FROM api_keys WHERE key = ?', 
+        with get_cursor() as c:
+            keys = c.execute('SELECT id, key, username, used_tokens, total_tokens FROM api_keys WHERE key = ?', 
                         (st.session_state.used_key,)).fetchone()
         adjusted_length = sum(2 if '\u4e00' <= c <= '\u9fff' else 1 for c in full_content)
         if keys[3] + adjusted_length >= keys[4]:
             st.error("额度已经用完，请联系管理员申请")
             return
 
-        c.execute('UPDATE api_keys SET used_tokens = used_tokens + ? WHERE key = ?', 
+        with get_cursor() as c:
+            c.execute('UPDATE api_keys SET used_tokens = used_tokens + ? WHERE key = ?', 
                  (adjusted_length, st.session_state.used_key))
         conn.commit()
 
@@ -97,7 +99,8 @@ def main_interface():
         )
 
         if st.session_state.get('valid_key'):
-            username = c.execute('SELECT username FROM api_keys WHERE key = ?', 
+            with get_cursor() as c:
+                username = c.execute('SELECT username FROM api_keys WHERE key = ?', 
                                (st.session_state.used_key,)).fetchone()[0]
 
             if st.button("🆕 - 新会话"):
@@ -108,13 +111,14 @@ def main_interface():
                 st.rerun()
 
             st.subheader("历史会话")
-            histories = c.execute('''
-                SELECT session_id, session_name, updated_at 
-                FROM history 
-                WHERE username = ? 
-                ORDER BY updated_at DESC 
-                LIMIT 10
-            ''', (username,)).fetchall()
+            with get_cursor() as c:
+                histories = c.execute('''
+                    SELECT session_id, session_name, updated_at 
+                    FROM history 
+                    WHERE username = ? 
+                    ORDER BY updated_at DESC 
+                    LIMIT 10
+                ''', (username,)).fetchall()
 
             for hist in histories:
                 session_id = hist[0]
@@ -152,11 +156,11 @@ def main_interface():
                             type="primary"
                         ):
                             if new_name.strip():
-                                c.execute(
-                                    'UPDATE history SET session_name = ? WHERE session_id = ?',
-                                    (new_name.strip(), session_id)
-                                )
-                                conn.commit()
+                                with get_cursor() as c:
+                                    c.execute(
+                                        'UPDATE history SET session_name = ? WHERE session_id = ?',
+                                        (new_name.strip(), session_id)
+                                    )
                             del st.session_state.editing_session
                             st.rerun()
                     else:
@@ -176,8 +180,8 @@ def main_interface():
                         key=f"del_{session_id}",
                         help="删除会话"
                     ):
-                        c.execute('DELETE FROM history WHERE session_id = ?', (session_id,))
-                        conn.commit()
+                        with get_cursor() as c:
+                            c.execute('DELETE FROM history WHERE session_id = ?', (session_id,))
                         if st.session_state.get('editing_session') == session_id:
                             del st.session_state.editing_session
                         st.rerun()
@@ -201,7 +205,8 @@ def main():
             if not re.fullmatch(r'^[A-Za-z0-9]+$', user_key):
                 st.error("无效的 User Key")
             else:
-                c.execute('SELECT username FROM api_keys WHERE key = ? AND is_active = 1', (user_key,))
+                with get_cursor() as c:
+                    c.execute('SELECT username FROM api_keys WHERE key = ? AND is_active = 1', (user_key,))
                 if result := c.fetchone():
                     st.session_state.valid_key = True
                     st.session_state.used_key = user_key

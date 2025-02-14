@@ -6,36 +6,42 @@ import sqlite3
 
 def generate_api_key(username, key, total_tokens):
     try:
-        c.execute('INSERT INTO api_keys (key, username, total_tokens) VALUES (?, ?, ?)',
-                 (key, username, total_tokens))
-        conn.commit()
-        return key
+        with get_cursor() as c: 
+            c.execute('INSERT INTO api_keys (key, username, total_tokens) VALUES (?, ?, ?)',
+                    (key, username, total_tokens))
+            return key
     except sqlite3.IntegrityError:
         st.error("API密钥已存在")
         return None
 
 def update_admin_status(user_id, is_admin):
-    c.execute('UPDATE users SET is_admin = ? WHERE id = ?', (int(is_admin), user_id))
-    conn.commit()
+    with get_cursor() as c: 
+        c.execute('UPDATE users SET is_admin = ? WHERE id = ?', (int(is_admin), user_id))
 
 def delete_user(user_id):
-    c.execute('DELETE FROM users WHERE id = ?', (user_id,))
-    c.execute('DELETE FROM api_keys WHERE username = (SELECT username FROM users WHERE id = ?)', (user_id,))
-    conn.commit()
+    with get_cursor() as c: 
+        c.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        c.execute('DELETE FROM api_keys WHERE username = (SELECT username FROM users WHERE id = ?)', (user_id,))
 
 def setup_admin(admin_user, admin_pass, key):
-    c.execute('SELECT 1 FROM users WHERE username = ?', (admin_user,))
-    if not c.fetchone():
-        c.execute('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)',
-                 (admin_user, hash_password(admin_pass)))
-        c.execute('''
-            INSERT INTO api_configurations (config_name, base_url, api_key, model_name, is_active)
-            VALUES (?, ?, ?, ?, 1)
-        ''', ("default", 
-             "https://dashscope.aliyuncs.com/compatible-mode/v1",
-             key,
-             "deepseek-r1"))
-        conn.commit()
+    with get_cursor() as c: 
+        c.execute('SELECT 1 FROM users WHERE username = ?', (admin_user,))
+        if not c.fetchone():
+            c.execute('''
+                INSERT INTO users (username, password_hash, is_admin)
+                VALUES (?, ?, 1)
+                ON CONFLICT(username) 
+                DO UPDATE SET
+                    password_hash = excluded.password_hash,
+                    is_admin = excluded.is_admin
+            ''', (username, password_hash))
+            c.execute('''
+                INSERT INTO api_configurations (config_name, base_url, api_key, model_name, is_active)
+                VALUES (?, ?, ?, ?, 1)
+            ''', ("default", 
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                key,
+                "deepseek-r1"))
 
 def admin_panel():
     if not st.session_state.get('logged_in'):
@@ -44,19 +50,20 @@ def admin_panel():
 
     if not st.session_state.is_admin:
         st.header("用户面板")
-        keys = c.execute('''SELECT id, key, username, used_tokens, total_tokens 
-                          FROM api_keys WHERE is_active = 1 AND username = ?''',
-                       (st.session_state.username,)).fetchall()
-        for key in keys:
-            with st.expander(f"密钥 {key[0]}"):
-                st.write(f"密钥: {key[1]}")
-                st.write(f"用户名: {key[2]}")
-                st.write(f"已用token: {key[3]}")
-                st.write(f"总token: {key[4]}")
-                if st.button(f"撤销密钥 {key[1]}"):
-                    c.execute('DELETE FROM api_keys WHERE key = ?', (key[1],))
-                    conn.commit()
-                    st.rerun()
+        with get_cursor() as c: 
+            keys = c.execute('''SELECT id, key, username, used_tokens, total_tokens 
+                            FROM api_keys WHERE is_active = 1 AND username = ?''',
+                        (st.session_state.username,)).fetchall()
+            for key in keys:
+                with st.expander(f"密钥 {key[0]}"):
+                    st.write(f"密钥: {key[1]}")
+                    st.write(f"用户名: {key[2]}")
+                    st.write(f"已用token: {key[3]}")
+                    st.write(f"总token: {key[4]}")
+                    if st.button(f"撤销密钥 {key[1]}"):
+                        c.execute('DELETE FROM api_keys WHERE key = ?', (key[1],))
+                        conn.commit()
+                        st.rerun()
         return
 
     st.header("管理面板")
@@ -73,17 +80,17 @@ def admin_panel():
                     st.success("密钥生成成功")
 
         st.subheader("活跃密钥")
-        keys = c.execute('SELECT id, key, username, used_tokens, total_tokens FROM api_keys WHERE is_active = 1').fetchall()
-        for key in keys:
-            with st.expander(f"密钥 {key[1]}"):
-                st.write(f"密钥: {key[1]}")
-                st.write(f"用户: {key[2]}")
-                st.write(f"已用token: {key[3]}")
-                st.write(f"总token: {key[4]}")
-                if st.button(f"删除key {key[1]}"):
-                    c.execute('DELETE FROM api_keys WHERE key = ?', (key[1],))
-                    conn.commit()
-                    st.rerun()
+        with get_cursor() as c: 
+            keys = c.execute('SELECT id, key, username, used_tokens, total_tokens FROM api_keys WHERE is_active = 1').fetchall()
+            for key in keys:
+                with st.expander(f"密钥 {key[1]}"):
+                    st.write(f"密钥: {key[1]}")
+                    st.write(f"用户: {key[2]}")
+                    st.write(f"已用token: {key[3]}")
+                    st.write(f"总token: {key[4]}")
+                    if st.button(f"删除key {key[1]}"):
+                        c.execute('DELETE FROM api_keys WHERE key = ?', (key[1],))
+                        st.rerun()
 
     with tab2:
         st.subheader("API配置管理")
@@ -94,35 +101,35 @@ def admin_panel():
             model_name = st.text_input("模型名称", value="deepseek-r1")
             if st.form_submit_button("添加"):
                 try:
-                    c.execute('''
-                        INSERT INTO api_configurations 
-                        (config_name, base_url, api_key, model_name)
-                        VALUES (?, ?, ?, ?)
-                    ''', (config_name, base_url, api_key, model_name))
-                    conn.commit()
+                    with get_cursor() as c: 
+                        c.execute('''
+                            INSERT INTO api_configurations 
+                            (config_name, base_url, api_key, model_name)
+                            VALUES (?, ?, ?, ?)
+                        ''', (config_name, base_url, api_key, model_name))
                     st.success("配置添加成功")
                 except sqlite3.IntegrityError:
                     st.error("配置名称已存在")
 
         st.subheader("现有配置")
-        configs = c.execute('SELECT id, config_name, base_url, model_name, is_active FROM api_configurations').fetchall()
-        for config in configs:
-            with st.expander(f"{config[1]} ({'激活' if config[4] else '未激活'})"):
-                st.code(f"Base URL: {config[2]}\n模型: {config[3]}")
-                if st.button(f"{'停用' if config[4] else '激活'}", key=f"toggle_{config[0]}"):
-                    c.execute('UPDATE api_configurations SET is_active = ? WHERE id = ?',
-                             (not config[4], config[0]))
-                    conn.commit()
-                    st.rerun()
-                if st.button("删除", key=f"del_{config[0]}"):
-                    c.execute('DELETE FROM api_configurations WHERE id = ?', (config[0],))
-                    conn.commit()
-                    st.rerun()
+        with get_cursor() as c: 
+            configs = c.execute('SELECT id, config_name, base_url, model_name, is_active FROM api_configurations').fetchall()
+            for config in configs:
+                with st.expander(f"{config[1]} ({'激活' if config[4] else '未激活'})"):
+                    st.code(f"Base URL: {config[2]}\n模型: {config[3]}")
+                    if st.button(f"{'停用' if config[4] else '激活'}", key=f"toggle_{config[0]}"):
+                        c.execute('UPDATE api_configurations SET is_active = ? WHERE id = ?',
+                                (not config[4], config[0]))
+                        st.rerun()
+                    if st.button("删除", key=f"del_{config[0]}"):
+                        c.execute('DELETE FROM api_configurations WHERE id = ?', (config[0],))
+                        st.rerun()
 
     with tab3:
         st.subheader("用户管理")
         register_form()
-        users = c.execute('SELECT id, username, is_admin FROM users').fetchall()
+        with get_cursor() as c: 
+            users = c.execute('SELECT id, username, is_admin FROM users').fetchall()
         for user in users:
             cols = st.columns([3,1,1])
             cols[0].write(user[1])
@@ -135,23 +142,22 @@ def admin_panel():
 
     with tab4:
         st.subheader("黑名单管理")
-        with st.form("黑名单操作"):
-            username = st.text_input("用户名")
-            reason = st.text_input("原因")
-            col1, col2 = st.columns(2)
-            if col1.form_submit_button("添加"):
-                try:
-                    c.execute('INSERT INTO blacklist (username, reason) VALUES (?, ?)', (username, reason))
-                    conn.commit()
-                    st.success("已添加至黑名单")
-                except sqlite3.IntegrityError:
-                    st.error("用户已在黑名单中")
-            if col2.form_submit_button("移除"):
-                c.execute('DELETE FROM blacklist WHERE username = ?', (username,))
-                conn.commit()
-                st.success("已从黑名单移除")
+        with get_cursor() as c: 
+            with st.form("黑名单操作"):
+                username = st.text_input("用户名")
+                reason = st.text_input("原因")
+                col1, col2 = st.columns(2)
+                if col1.form_submit_button("添加"):
+                    try:
+                        c.execute('INSERT INTO blacklist (username, reason) VALUES (?, ?)', (username, reason))
+                        st.success("已添加至黑名单")
+                    except sqlite3.IntegrityError:
+                        st.error("用户已在黑名单中")
+                if col2.form_submit_button("移除"):
+                    c.execute('DELETE FROM blacklist WHERE username = ?', (username,))
+                    st.success("已从黑名单移除")
 
-        st.subheader("黑名单列表")
-        blacklist = c.execute('SELECT username, reason FROM blacklist').fetchall()
-        for entry in blacklist:
-            st.write(f"{entry[0]} - {entry[1]}")
+            st.subheader("黑名单列表")
+            blacklist = c.execute('SELECT username, reason FROM blacklist').fetchall()
+            for entry in blacklist:
+                st.write(f"{entry[0]} - {entry[1]}")

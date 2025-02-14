@@ -35,13 +35,14 @@ def web_search(query, api_key):
 
 def get_active_api_config():
     """获取当前激活的API配置"""
-    c.execute("""
-        SELECT base_url, api_key, model_name 
-        FROM api_configurations 
-        WHERE is_active = 1 
-        LIMIT 1
-    """)
-    result = c.fetchone()
+    with get_cursor() as c: 
+        c.execute("""
+            SELECT base_url, api_key, model_name 
+            FROM api_configurations 
+            WHERE is_active = 1 
+            LIMIT 1
+        """)
+        result = c.fetchone()
     return result or ("https://api.deepseek.com/v1", "", "deepseek-r1")
 
 def process_stream(stream, used_key):
@@ -79,11 +80,11 @@ def process_stream(stream, used_key):
 
             # 更新Token使用
             adjusted_length = sum(2 if '\u4e00' <= c <= '\u9fff' else 1 for c in (reasoning + content))
-            c.execute(
-                "UPDATE api_keys SET used_tokens = used_tokens + ? WHERE key = ?",
-                (adjusted_length, used_key)
-            )
-            conn.commit()
+            with get_cursor() as c: 
+                c.execute(
+                    "UPDATE api_keys SET used_tokens = used_tokens + ? WHERE key = ?",
+                    (adjusted_length, used_key)
+                )
 
         # 流结束后移除光标
         response_placeholder.markdown(response_content)

@@ -1,7 +1,7 @@
 # auth_utils.py
 import bcrypt
 import streamlit as st
-from db_utils import conn, c
+from db_utils import conn, c, get_cursor
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -10,12 +10,14 @@ def verify_password(password, hashed):
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 def is_blacklisted(username):
-    c.execute('SELECT 1 FROM blacklist WHERE username = ?', (username,))
-    return c.fetchone() is not None
+    with get_cursor() as c:  # 使用上下文管理器自动管理游标
+        c.execute('SELECT 1 FROM blacklist WHERE username = ?', (username,))
+        return c.fetchone() is not None
 
 def authenticate_user(username, password):
-    c.execute('SELECT password_hash, is_admin FROM users WHERE username = ?', (username,))
-    result = c.fetchone()
+    with get_cursor() as c: 
+        c.execute('SELECT password_hash, is_admin FROM users WHERE username = ?', (username,))
+        result = c.fetchone()
     if result and verify_password(password, result[0]):
         st.session_state.is_admin = bool(result[1])
         return True
@@ -45,9 +47,9 @@ def register_form():
                 st.error("用户名已被封禁")
                 return
             try:
-                c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)',
+                with get_cursor() as c: 
+                    c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)',
                          (username, hash_password(password)))
-                conn.commit()
                 st.success("注册成功！请登录")
             except sqlite3.IntegrityError:
                 st.error("用户名已存在")
