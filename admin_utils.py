@@ -1,6 +1,6 @@
 # admin_utils.py
 import streamlit as st
-from db_utils import conn, c
+from db_utils import conn, get_cursor
 from auth_utils import hash_password, login_form, register_form
 import sqlite3
 
