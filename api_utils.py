@@ -2,7 +2,7 @@
 import requests
 from openai import OpenAI
 import streamlit as st
-from db_utils import conn, c
+from db_utils import conn, get_cursor
 
 def web_search(query, api_key):
     """执行谷歌搜索并返回格式化结果"""

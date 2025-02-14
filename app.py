@@ -6,7 +6,7 @@ import uuid
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
-from db_utils import conn, c, get_cursor
+from db_utils import conn, get_cursor
 from auth_utils import login_form, register_form
 from admin_utils import admin_panel, setup_admin
 from file_utils import save_uploaded_files, format_file_contents
@@ -61,7 +61,6 @@ def handle_user_input():
         with get_cursor() as c:
             c.execute('UPDATE api_keys SET used_tokens = used_tokens + ? WHERE key = ?', 
                  (adjusted_length, st.session_state.used_key))
-        conn.commit()
 
         st.session_state.messages.append({"role": "user", "content": full_content})
         with st.chat_message("user"):

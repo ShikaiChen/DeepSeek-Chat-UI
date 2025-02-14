@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime
 import streamlit as st
-from db_utils import conn, c
+from db_utils import conn, get_cursor
 
 def save_session():
     """保存当前会话到数据库"""

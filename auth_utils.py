@@ -1,7 +1,7 @@
 # auth_utils.py
 import bcrypt
 import streamlit as st
-from db_utils import conn, c, get_cursor
+from db_utils import conn, get_cursor
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
