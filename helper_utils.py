@@ -76,10 +76,10 @@ def display_message(message):
 
 def _display_assistant_message(content):
     """解析并显示助理消息"""
-    if "<THINKING>" in content:
-        parts = content.split("</THINKING>")
+    if "<think>" in content:
+        parts = content.split("</think>")
         with st.expander("查看思考过程"):
-            st.markdown(f"```\n{parts[0][10:]}\n```")
+            st.markdown(f"```\n{parts[0][7:]}\n```")
         st.markdown(parts[1])
     else:
         st.markdown(content)
