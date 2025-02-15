@@ -5,15 +5,19 @@ from contextlib import contextmanager
 
 conn = sqlite3.connect('app.db', check_same_thread=False)
 
-# 新增上下文管理器
 @contextmanager
 def get_cursor():
     cursor = conn.cursor()
     try:
         yield cursor
-        conn.commit()  # 自动提交事务
+        # 仅当存在活动事务时才提交
+        if conn.in_transaction:
+            conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
     finally:
-        cursor.close()  # 自动关闭游标
+        cursor.close()
 
 def initialize_database():
     with get_cursor() as c:  # 使用上下文管理器
