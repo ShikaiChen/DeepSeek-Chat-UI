@@ -84,7 +84,7 @@ streamlit run app.py
 - **普通用户**：`http://localhost:8501`
 - **管理员面板**：通过侧边栏设置按钮进入，登录管理员账户即可
 
-<img src="public/login.png" width="700" />
+<img src="public/login.jpg" width="700" />
 
 4. 初始化user key：
 作为管理员登录后，需要创建user key，否则无法使用。
@@ -92,11 +92,11 @@ user key的作用是记录使用量，避免服务提供给他人使用后被恶
 这个user key和api使用的key是不同的：
 - **user key**: 可自定义，仅和user绑定。
 
-<img src="public/user-key.png" width="700" />
+<img src="public/user-key.jpg" width="700" />
 
 - **api key**: 云服务提供的，一般为sk-xxx格式。是整个项目和云服务的对接途径。
 
-<img src="public/api-key.png" width="700" />
+<img src="public/api-key.jpg" width="700" />
 
 5. 功能操作：
 - 上传文件（单个文件最大1MB）
