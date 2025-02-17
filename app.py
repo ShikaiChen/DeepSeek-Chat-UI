@@ -193,7 +193,7 @@ def main_interface():
         handle_user_input()
 
 def main():
-    setup_admin(admin_user, admin_pass, api_key)
+    setup_admin(admin_user, hash_password(admin_pass), api_key)
 
     if 'current_session_id' not in st.session_state:
         st.session_state.current_session_id = str(uuid.uuid4())

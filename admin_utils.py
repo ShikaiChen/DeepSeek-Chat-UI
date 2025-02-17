@@ -34,7 +34,7 @@ def setup_admin(admin_user, admin_pass, key):
                 DO UPDATE SET
                     password_hash = excluded.password_hash,
                     is_admin = excluded.is_admin
-            ''', (username, password_hash))
+            ''', (admin_user, admin_pass))
             c.execute('''
                 INSERT INTO api_configurations (config_name, base_url, api_key, model_name, is_active)
                 VALUES (?, ?, ?, ?, 1)
