@@ -7,7 +7,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from db_utils import conn, get_cursor
-from auth_utils import login_form, register_form
+from auth_utils import login_form, register_form, hash_password
 from admin_utils import admin_panel, setup_admin
 from file_utils import save_uploaded_files, format_file_contents
 from api_utils import web_search, get_active_api_config, process_stream
