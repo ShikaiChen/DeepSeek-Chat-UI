@@ -5,6 +5,7 @@
 
 基于Streamlit构建的智能聊天助手，集成深度思考模型与多用户管理系统，支持文件分析、会话管理和API密钥控制，支持联网搜索功能。
 本实现主要调用阿里云的deepseek服务，因此需要部署者提前申请好阿里云百炼的api key，格式为sk-xxxx。
+
 <img src="public/ui-2.png" width="700" />
 
 ## 📜 更新日志
@@ -86,6 +87,9 @@ streamlit run app.py
 4. 初始化user key：
 作为管理员登录后，需要创建user key，否则无法使用。
 user key的作用是记录使用量，避免服务提供给他人使用后被恶意薅用量，请谨慎配置。
+这个user key和api使用的key是不同的：
+- **user key**: 可自定义，仅和user绑定。
+- **api key**: 云服务提供的，一般为sk-xxx格式。是整个项目和云服务的对接途径。
 
 5. 功能操作：
 - 上传文件（单个文件最大1MB）
