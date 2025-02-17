@@ -67,19 +67,19 @@ def admin_panel():
         return
 
     st.header("管理面板")
-    tab1, tab2, tab3, tab4 = st.tabs(["API密钥", "API配置", "用户", "黑名单"])
+    tab1, tab2, tab3, tab4 = st.tabs(["用户凭证", "API Key配置", "用户", "黑名单"])
 
     with tab1:
-        st.subheader("API密钥管理")
-        with st.form("生成密钥"):
+        st.subheader("用户凭证管理")
+        with st.form("生成凭证"):
             username = st.text_input("用户名")
-            key = st.text_input("API密钥")
+            key = st.text_input("输入凭证（数字、字母组合）")
             token_total = st.number_input("总token数")
-            if st.form_submit_button("生成密钥"):
+            if st.form_submit_button("生成凭证"):
                 if generate_api_key(username, key, token_total):
-                    st.success("密钥生成成功")
+                    st.success("凭证生成成功")
 
-        st.subheader("活跃密钥")
+        st.subheader("活跃凭证")
         with get_cursor() as c: 
             keys = c.execute('SELECT id, key, username, used_tokens, total_tokens FROM api_keys WHERE is_active = 1').fetchall()
             for key in keys:
@@ -97,8 +97,8 @@ def admin_panel():
         with st.form("添加配置"):
             config_name = st.text_input("配置名称")
             base_url = st.text_input("Base URL", value="https://dashscope.aliyuncs.com/compatible-mode/v1")
-            api_key = st.text_input("API密钥", type="password")
-            model_name = st.text_input("模型名称", value="deepseek-r1")
+            api_key = st.text_input("API密钥（sk-xxx格式）", type="password")
+            model_name = st.text_input("模型名称（参考云服务厂商提供名称）", value="deepseek-r1")
             if st.form_submit_button("添加"):
                 try:
                     with get_cursor() as c: 
