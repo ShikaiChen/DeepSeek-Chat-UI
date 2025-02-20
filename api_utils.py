@@ -68,7 +68,7 @@ def process_stream(stream, used_key):
                 thinking_placeholder.markdown(thinking_content)
                 
                 # 检测思考阶段结束
-                if not (reasoning or role):
+                if content:
                     status.update(label="思考完成", state="complete", expanded=False)
                     thinking_phase = False
                     response_placeholder.markdown("▌")  # 初始化响应光标
